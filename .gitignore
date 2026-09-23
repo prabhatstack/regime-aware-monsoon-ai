@@ -20,3 +20,4 @@ Thumbs.db
 # Logs & temp
 *.log
 scratch/
+tools/
