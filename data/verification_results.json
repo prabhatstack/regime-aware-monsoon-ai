@@ -1,0 +1,40 @@
+{
+  "sample_size": 3660,
+  "test_period": "2024-06-01 00:00 to 2024-09-30 00:00",
+  "heavy_rain_threshold_mm": 64.5,
+  "comparison": {
+    "Raw NWP Forecast": {
+      "RMSE (mm)": 22.5,
+      "MAE (mm)": 12.19,
+      "Mean Bias (mm)": -8.65,
+      "Correlation (r)": 0.88,
+      "POD (Hit Rate)": 0.461,
+      "FAR (False Alarm Ratio)": 0.041,
+      "CSI (Threat Score)": 0.452,
+      "ETS (Equitable Threat Score)": 0.41,
+      "FSS (Spatial Skill)": 0.733
+    },
+    "Simple Global Bias Correction": {
+      "RMSE (mm)": 20.77,
+      "MAE (mm)": 13.31,
+      "Mean Bias (mm)": 0.0,
+      "Correlation (r)": 0.88,
+      "POD (Hit Rate)": 0.576,
+      "FAR (False Alarm Ratio)": 0.096,
+      "CSI (Threat Score)": 0.543,
+      "ETS (Equitable Threat Score)": 0.497,
+      "FSS (Spatial Skill)": 0.832
+    },
+    "Regime-Aware XGBoost System": {
+      "RMSE (mm)": 14.35,
+      "MAE (mm)": 7.61,
+      "Mean Bias (mm)": -0.23,
+      "Correlation (r)": 0.932,
+      "POD (Hit Rate)": 0.882,
+      "FAR (False Alarm Ratio)": 0.196,
+      "CSI (Threat Score)": 0.725,
+      "ETS (Equitable Threat Score)": 0.682,
+      "FSS (Spatial Skill)": 0.956
+    }
+  }
+}

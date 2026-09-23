@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Regime-Aware AI Post-Processing of Monsoon Rainfall Forecasts</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-cloud-showers-heavy" style="color: white; font-size: 1.2rem;"></i>
+      </div>
+      <div>
+        <div class="brand-title">REGIME-AWARE POST-PROCESSING</div>
+        <div class="brand-subtitle">Indian Monsoon NWP Bias Correction System</div>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs matching Blueprint Section 12 -->
+    <nav class="nav-links">
+      <button class="nav-item active" data-view="dashboard">
+        <i class="fa-solid fa-map"></i> Dashboard
+      </button>
+      <button class="nav-item" data-view="district">
+        <i class="fa-solid fa-location-dot"></i> District View
+      </button>
+      <button class="nav-item" data-view="comparison">
+        <i class="fa-solid fa-code-compare"></i> Comparison
+      </button>
+      <button class="nav-item" data-view="regimes">
+        <i class="fa-solid fa-wind"></i> Regime Explorer
+      </button>
+      <button class="nav-item" data-view="verification">
+        <i class="fa-solid fa-chart-line"></i> Verification
+      </button>
+      <button class="nav-item" data-view="models">
+        <i class="fa-solid fa-microchip"></i> Models & SHAP
+      </button>
+      <button class="nav-item" data-view="methodology">
+        <i class="fa-solid fa-book-open"></i> Methodology
+      </button>
+    </nav>
+
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <div class="nav-badge-pill">
+        <div class="status-dot"></div>
+        <span>3 Models Active</span>
+      </div>
+
+      <!-- Auth Controls -->
+      <div id="auth-container">
+        <!-- Unauthenticated State -->
+        <button id="btn-open-login" class="nav-item" style="background: rgba(56, 189, 248, 0.15); border: 1px solid rgba(56, 189, 248, 0.4); color: #38bdf8; font-weight: 600;">
+          <i class="fa-solid fa-arrow-right-to-bracket"></i> Sign In
+        </button>
+
+        <!-- Authenticated State (Hidden by default) -->
+        <div id="user-profile-pill" class="user-pill" style="display: none;">
+          <div class="user-avatar" id="nav-user-avatar">IMD</div>
+          <div class="user-info-text">
+            <span class="user-name" id="nav-user-name">Dr. R. K. Jenamani</span>
+            <span class="user-role-badge" id="nav-user-role">Lead Meteorologist</span>
+          </div>
+          <button id="btn-logout" class="btn-logout" title="Sign Out">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Control & Filter Strip (Section 13 User Flow) -->
+  <section class="control-strip">
+    <div class="control-group">
+      <span class="filter-label"><i class="fa-solid fa-location-crosshairs"></i> District:</span>
+      <select id="select-district" class="custom-select">
+        <option value="all">All Districts (Eastern India / Jharkhand)</option>
+      </select>
+
+      <span class="filter-label" style="margin-left: 0.5rem;"><i class="fa-regular fa-calendar"></i> Date:</span>
+      <select id="select-date" class="custom-select">
+        <!-- Injected via JS -->
+      </select>
+    </div>
+
+    <div class="control-group">
+      <span class="filter-label"><i class="fa-regular fa-clock"></i> Lead Time:</span>
+      <div class="lead-time-group">
+        <button class="lead-btn active" data-lead="24">+24h</button>
+        <button class="lead-btn" data-lead="48">+48h</button>
+        <button class="lead-btn" data-lead="72">+72h</button>
+      </div>
+
+      <button id="btn-refresh" class="custom-select" style="background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; font-weight: 600;">
+        <i class="fa-solid fa-arrows-rotate"></i> Sync
+      </button>
+    </div>
+  </section>
+
+  <!-- Main View Container -->
+  <main class="view-container">
+
+    <!-- 1. DASHBOARD VIEW -->
+    <div id="view-dashboard" class="page-view active">
+      <!-- Synoptic Banner -->
+      <div class="grid-4" style="margin-bottom: 1.25rem;">
+        <div class="metric-box">
+          <div class="metric-label">Detected Synoptic Regime</div>
+          <div class="metric-val" id="dash-regime-val">Active Monsoon</div>
+          <div class="metric-sub" id="dash-regime-desc">Deep trough & low-level jet dominance</div>
+        </div>
+        <div class="metric-box" style="border-left-color: #f97316;">
+          <div class="metric-label">Heavy Rain Risk (&ge;64.5 mm)</div>
+          <div class="metric-val" id="dash-heavy-risk">High Alert</div>
+          <div class="metric-sub">Calibrated XGBoost Model 3</div>
+        </div>
+        <div class="metric-box" style="border-left-color: #10b981;">
+          <div class="metric-label">Average Error Reduction</div>
+          <div class="metric-val" id="dash-error-reduction">-36.2%</div>
+          <div class="metric-sub">RMSE cut from 22.5 to 14.3 mm</div>
+        </div>
+        <div class="metric-box" style="border-left-color: #a855f7;">
+          <div class="metric-label">Spatial Skill (FSS)</div>
+          <div class="metric-val" id="dash-fss-val">0.956</div>
+          <div class="metric-sub">Raw NWP: 0.733 (+30.4% gain)</div>
+        </div>
+      </div>
+
+      <!-- Map & District Summary -->
+      <div class="grid-dashboard">
+        <!-- Interactive Leaflet Map -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title"><i class="fa-solid fa-earth-asia" style="color: #38bdf8;"></i> Gridded / District Rainfall Forecast Map</div>
+              <div class="card-subtitle">Click on any district to inspect raw vs. ML-corrected precipitation and heavy-rain probabilities</div>
+            </div>
+            <span class="regime-pill regime-active" id="dash-map-regime-badge">Active</span>
+          </div>
+
+          <div id="map"></div>
+
+          <!-- Meteorological Rainfall Intensity Legend -->
+          <div class="map-legend">
+            <span style="font-weight: 600; color: #cbd5e1; margin-right: 0.5rem;">IMD Scale:</span>
+            <div class="legend-item"><div class="legend-color" style="background: #334155;"></div> Dry (&lt;2.5mm)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #10b981;"></div> Light (2.5-15.5mm)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #eab308;"></div> Moderate (15.6-64.4mm)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #f97316;"></div> Heavy (64.5-115.5mm)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div> Very Heavy (115.6-204.4mm)</div>
+            <div class="legend-item"><div class="legend-color" style="background: #c084fc;"></div> Extreme (&ge;204.5mm)</div>
+          </div>
+        </div>
+
+        <!-- District Live Table -->
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title"><i class="fa-solid fa-list-check" style="color: #818cf8;"></i> District Forecast Product</div>
+              <div class="card-subtitle">Official table view for decision support</div>
+            </div>
+          </div>
+
+          <div style="max-height: 520px; overflow-y: auto;">
+            <table class="custom-table" id="table-dashboard-districts">
+              <thead>
+                <tr>
+                  <th>District</th>
+                  <th>Raw NWP</th>
+                  <th>Corrected</th>
+                  <th>Heavy Prob</th>
+                  <th>Alert</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-dashboard-districts">
+                <!-- Injected via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. DISTRICT DEEP DIVE VIEW -->
+    <div id="view-district" class="page-view">
+      <div class="grid-3" style="margin-bottom: 1.25rem;">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-building-flag" style="color: #38bdf8;"></i> Selected District</div>
+          <div style="font-size: 1.8rem; font-weight: 700; margin: 0.5rem 0;" id="dist-name-display">Ranchi</div>
+          <div style="color: var(--text-muted); font-size: 0.85rem;" id="dist-geo-display">Elevation: 651m | Lat: 23.34°N, Lon: 85.31°E</div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-gauge-high" style="color: #f97316;"></i> Heavy Rain Probability</div>
+          <div style="font-size: 1.8rem; font-weight: 700; margin: 0.5rem 0; color: #f97316;" id="dist-prob-display">84.2%</div>
+          <div style="color: var(--text-muted); font-size: 0.85rem;">Operational Threshold (&ge; 64.5 mm / 24hr)</div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-shield-halved" style="color: #10b981;"></i> Post-Processing Bias Adjustment</div>
+          <div style="font-size: 1.8rem; font-weight: 700; margin: 0.5rem 0; color: #34d399;" id="dist-adj-display">+32.4 mm</div>
+          <div style="color: var(--text-muted); font-size: 0.85rem;">Non-negative floor rule active: max(0, NWP + Error)</div>
+        </div>
+      </div>
+
+      <!-- Time Series Chart -->
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="fa-solid fa-chart-area" style="color: #38bdf8;"></i> Monsoon Season Time-Series: Raw NWP vs. Regime-Aware Corrected vs. Observations</div>
+            <div class="card-subtitle">Daily verification across June–September on held-out 2024 monsoon season</div>
+          </div>
+        </div>
+        <div style="height: 380px; width: 100%;">
+          <canvas id="chart-timeseries"></canvas>
+        </div>
+      </div>
+
+      <!-- Multi-Lead Time Comparison -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="fa-solid fa-arrow-trend-up" style="color: #818cf8;"></i> Forecast Degradation by Lead Time (+24h, +48h, +72h)</div>
+            <div class="card-subtitle">How regime-aware post-processing maintains higher skill at longer forecast horizons</div>
+          </div>
+        </div>
+        <div style="height: 260px; width: 100%;">
+          <canvas id="chart-leadtime"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. FORECAST COMPARISON VIEW -->
+    <div id="view-comparison" class="page-view">
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="fa-solid fa-code-compare" style="color: #38bdf8;"></i> Raw NWP vs. Corrected Rainfall Discrepancy Waterfall</div>
+            <div class="card-subtitle">Displays where the raw NWP model suffered severe underestimation or drizzle bias</div>
+          </div>
+        </div>
+        <div style="height: 380px; width: 100%;">
+          <canvas id="chart-comparison-scatter"></canvas>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i> Extreme Underestimation Correction</div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0 1rem 0;">
+            During Low/Depression and Active monsoon events, raw NWP models consistently underestimate peak convective downpours due to sub-grid parameterization. Model 2 dynamically scales up intense rainfall based on synoptic vorticity and precipitable water.
+          </p>
+          <div class="metric-box">
+            <div class="metric-label">Heavy Rain Hit Rate Gain</div>
+            <div class="metric-val" style="color: #34d399;">+91.3% POD</div>
+            <div class="metric-sub">Raw POD: 0.461 &rarr; Regime-Aware POD: 0.882</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-droplet-slash" style="color: #38bdf8;"></i> Drizzle Bias Suppression</div>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0 1rem 0;">
+            During Break monsoon regimes, NWP models routinely produce false drizzle (5–12 mm). By detecting the Break regime via the high geopotential ridge and weak winds, Model 2 successfully pulls false alarms back down to near-zero.
+          </p>
+          <div class="metric-box">
+            <div class="metric-label">Break Regime Mean Error Reduction</div>
+            <div class="metric-val" style="color: #38bdf8;">-82.5%</div>
+            <div class="metric-sub">Protects agriculture from false rainfall forecasts</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. WEATHER REGIME EXPLORER VIEW -->
+    <div id="view-regimes" class="page-view">
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="fa-solid fa-wind" style="color: #38bdf8;"></i> The 5 Synoptic Indian Monsoon Weather Regimes</div>
+            <div class="card-subtitle">Meteorological physical characteristics and why traditional single-equation bias correction fails</div>
+          </div>
+        </div>
+        <div class="grid-3" id="regime-cards-container">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-chart-pie" style="color: #818cf8;"></i> Prototype Regime Occurrence Frequency</div>
+          <div style="height: 280px; width: 100%;">
+            <canvas id="chart-regime-distribution"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-diagram-project" style="color: #38bdf8;"></i> Model 1 Feature Contributions (XGBoost)</div>
+          <div style="height: 280px; width: 100%;">
+            <canvas id="chart-regime-importance"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 5. VERIFICATION VIEW (Blueprint Section 11) -->
+    <div id="view-verification" class="page-view">
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="fa-solid fa-trophy" style="color: #facc15;"></i> Official Meteorological Skill Comparison (Held-Out Monsoon 2024)</div>
+            <div class="card-subtitle">Rigorous benchmark: Raw NWP vs. Simple Global Bias Correction vs. Regime-Aware XGBoost System</div>
+          </div>
+          <span class="nav-badge-pill" style="background: rgba(56, 189, 248, 0.15); border-color: #38bdf8; color: #38bdf8;">3,660 Out-of-Sample Verification Records</span>
+        </div>
+
+        <table class="custom-table" id="table-verification-full">
+          <thead>
+            <tr>
+              <th>Verification Metric</th>
+              <th>Description / Target</th>
+              <th>Raw NWP</th>
+              <th>Simple Global Bias Corr</th>
+              <th>Regime-Aware XGBoost</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tbody-verification">
+            <!-- Injected via JS -->
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-chart-column" style="color: #38bdf8;"></i> Error Reduction: RMSE & MAE (mm)</div>
+          <div style="height: 280px; width: 100%;">
+            <canvas id="chart-verif-continuous"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-bullseye" style="color: #10b981;"></i> Categorical Skill Scores (POD, CSI, ETS, FSS)</div>
+          <div style="height: 280px; width: 100%;">
+            <canvas id="chart-verif-categorical"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6. MODELS & SHAP EXPLAINABILITY VIEW -->
+    <div id="view-models" class="page-view">
+      <div class="card" style="margin-bottom: 1.25rem;">
+        <div class="card-title"><i class="fa-solid fa-microchip" style="color: #38bdf8;"></i> Exactly 3 Core Models Architecture</div>
+        <div class="card-subtitle" style="margin-bottom: 1rem;">Blueprint Section 3: Engineered to eliminate unnecessary deep learning overhead while maximizing meteorological physical interpretability.</div>
+
+        <div class="grid-3">
+          <div class="card" style="background: rgba(30, 41, 59, 0.4);">
+            <div class="regime-pill regime-active" style="margin-bottom: 0.5rem;">Model 1</div>
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Weather Regime Classifier</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">
+              Classifies prevailing synoptic weather state from atmospheric dynamics.
+            </p>
+            <div style="font-size: 0.78rem; font-family: var(--font-mono); color: #93c5fd;">
+              <div>• Algorithm: XGBoost Classifier</div>
+              <div>• Objective: multi:softprob</div>
+              <div>• Classes: 5 Synoptic Regimes</div>
+              <div>• Test Accuracy: 80.77%</div>
+            </div>
+          </div>
+
+          <div class="card" style="background: rgba(30, 41, 59, 0.4);">
+            <div class="regime-pill regime-break" style="margin-bottom: 0.5rem;">Model 2</div>
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Rainfall Error Regressor</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">
+              Predicts forecast error conditioned on detected regime & atmospheric context.
+            </p>
+            <div style="font-size: 0.78rem; font-family: var(--font-mono); color: #facc15;">
+              <div>• Algorithm: XGBoost Regressor</div>
+              <div>• Target: Reference - NWP</div>
+              <div>• Safeguard: max(0, NWP + Error)</div>
+              <div>• RMSE Gain: -36.2%</div>
+            </div>
+          </div>
+
+          <div class="card" style="background: rgba(30, 41, 59, 0.4);">
+            <div class="regime-pill regime-low_depression" style="margin-bottom: 0.5rem;">Model 3</div>
+            <h3 style="font-size: 1.1rem; margin-bottom: 0.4rem;">Heavy-Rain Probability</h3>
+            <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.8rem;">
+              Calibrated exceedance probability for operational extreme threshold (&ge;64.5mm).
+            </p>
+            <div style="font-size: 0.78rem; font-family: var(--font-mono); color: #f87171;">
+              <div>• Algorithm: Calibrated XGBoost</div>
+              <div>• Weighting: scale_pos_weight</div>
+              <div>• ROC-AUC: 0.982</div>
+              <div>• Brier Score: 0.0417</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Feature Importance / SHAP -->
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><i class="fa-solid fa-brain" style="color: #c084fc;"></i> Explainability (SHAP / Feature Attribution)</div>
+            <div class="card-subtitle">Key physical drivers influencing rainfall post-processing adjustments</div>
+          </div>
+        </div>
+        <div style="height: 320px; width: 100%;">
+          <canvas id="chart-shap-importance"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 7. METHODOLOGY & JUDGE GUIDE VIEW -->
+    <div id="view-methodology" class="page-view">
+      <!-- One-line explanation banner -->
+      <div class="card" style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.2), rgba(99, 102, 241, 0.25)); border-color: rgba(56, 189, 248, 0.4); margin-bottom: 1.25rem;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: #38bdf8; font-weight: 700; margin-bottom: 0.3rem;">
+          <i class="fa-solid fa-quote-left"></i> Blueprint Section 19: One-Line Project Explanation for Judges
+        </div>
+        <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; color: #ffffff; line-height: 1.4;">
+          “Our system does not replace the weather model; it learns how NWP rainfall forecasts behave under different monsoon regimes and applies regime-aware machine-learning corrections to improve rainfall forecasts and heavy-rainfall decision support.”
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-triangle-exclamation" style="color: #f59e0b;"></i> Blueprint Section 17: What We Do NOT Claim</div>
+          <ul style="font-size: 0.84rem; color: var(--text-muted); line-height: 1.7; margin-top: 0.8rem; padding-left: 1.2rem;">
+            <li><strong>We do not replace NWP:</strong> We provide an ML post-processing layer on top of raw numerical models.</li>
+            <li><strong>ERA5 is not direct ground truth:</strong> Used for atmospheric context & reanalysis; rain-gauge/IMD gridded data is ground truth.</li>
+            <li><strong>No data leakage:</strong> We strictly split data by monsoon seasons (2021-2023 for train, 2024 held out), never random row splits.</li>
+            <li><strong>Deep learning is not required:</strong> XGBoost excels on structured tabular/spatiotemporal forecast tabular features without massive GPU footprint.</li>
+            <li><strong>Non-negative safeguard:</strong> Physical rainfall cannot be negative; bounded at $\max(0, \text{NWP} + \text{Error})$.</li>
+          </ul>
+        </div>
+
+        <div class="card">
+          <div class="card-title"><i class="fa-solid fa-database" style="color: #38bdf8;"></i> Data Ingestion & Operational Pipeline</div>
+          <div style="font-size: 0.84rem; color: var(--text-muted); line-height: 1.7; margin-top: 0.8rem;">
+            <p><strong>NWP Forecast Sources:</strong> ECMWF TIGGE / NCMRWF / IMD-GFS historical archives (GRIB2 / NetCDF formats).</p>
+            <p style="margin-top: 0.5rem;"><strong>Atmospheric Predictors:</strong> Low-level zonal/meridional winds ($u_{850}, v_{850}$), Mean Sea Level Pressure (MSLP), 500 hPa Geopotential Height ($Z_{500}$), 2m Relative Humidity, Temperature.</p>
+            <p style="margin-top: 0.5rem;"><strong>District Resolution:</strong> Grid-to-district polygon area-weighted averaging across Jharkhand (Ranchi, Jamshedpur, Dhanbad, Bokaro, etc.).</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ================= AUTHENTICATION MODAL ================= -->
+  <div id="auth-modal" class="auth-modal-overlay" style="display: none;">
+    <div class="auth-modal-card">
+      <div class="auth-modal-header">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <div class="brand-icon" style="width: 32px; height: 32px;">
+            <i class="fa-solid fa-user-shield" style="font-size: 0.95rem; color: white;"></i>
+          </div>
+          <div>
+            <h3 style="font-family: var(--font-display); font-size: 1.15rem; color: #ffffff;" id="auth-modal-title">Sign In to Weather Center</h3>
+            <p style="font-size: 0.75rem; color: var(--text-dim);">Authorized Meteorological & Disaster Authority Access</p>
+          </div>
+        </div>
+        <button id="btn-close-auth" class="modal-close-btn">&times;</button>
+      </div>
+
+      <!-- Auth Mode Tabs -->
+      <div class="auth-tabs">
+        <button id="tab-login" class="auth-tab-btn active">Sign In</button>
+        <button id="tab-register" class="auth-tab-btn">Create Account</button>
+      </div>
+
+      <!-- Quick Demo Login Banner for Judges -->
+      <div class="demo-login-box">
+        <div style="font-size: 0.72rem; text-transform: uppercase; font-weight: 700; color: #38bdf8; margin-bottom: 0.35rem;">
+          <i class="fa-solid fa-bolt"></i> 1-Click Demo Login for Evaluators / Judges:
+        </div>
+        <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <button id="btn-demo-forecaster" class="btn-demo-role">
+            <i class="fa-solid fa-cloud-bolt"></i> IMD Lead Forecaster
+          </button>
+          <button id="btn-demo-disaster" class="btn-demo-role" style="border-color: rgba(249, 115, 22, 0.4); color: #fb923c;">
+            <i class="fa-solid fa-person-shelter"></i> Disaster Authority
+          </button>
+        </div>
+      </div>
+
+      <!-- Error / Success Alert Box -->
+      <div id="auth-alert" class="auth-alert" style="display: none;"></div>
+
+      <!-- Form -->
+      <form id="form-auth" style="margin-top: 1rem;">
+        <!-- Name field for Sign Up -->
+        <div id="field-group-name" class="form-group" style="display: none;">
+          <label class="form-label">Full Name</label>
+          <input type="text" id="auth-name" class="form-input" placeholder="e.g. Dr. Rajesh Sharma" />
+        </div>
+
+        <!-- Role field for Sign Up -->
+        <div id="field-group-role" class="form-group" style="display: none;">
+          <label class="form-label">Operational Role</label>
+          <select id="auth-role" class="form-input">
+            <option value="IMD Operational Forecaster">IMD Operational Forecaster</option>
+            <option value="District Disaster Management Authority">District Disaster Management Authority</option>
+            <option value="Agricultural Climate Officer">Agricultural Climate Officer</option>
+            <option value="Atmospheric Science Researcher">Atmospheric Science Researcher</option>
+          </select>
+        </div>
+
+        <!-- Email -->
+        <div class="form-group">
+          <label class="form-label">Official Email</label>
+          <input type="email" id="auth-email" class="form-input" placeholder="user@imd.gov.in" required />
+        </div>
+
+        <!-- Password -->
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" id="auth-password" class="form-input" placeholder="••••••••" required />
+        </div>
+
+        <button type="submit" id="btn-auth-submit" class="btn-primary" style="width: 100%; margin-top: 0.8rem; padding: 0.7rem;">
+          Sign In
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- App JS -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+{
+  "forecaster@imd.gov.in": {
+    "id": "usr_imd_01",
+    "name": "Dr. R. K. Jenamani",
+    "email": "forecaster@imd.gov.in",
+    "role": "IMD Lead Meteorologist",
+    "salt": "demo_salt_1",
+    "password_hash": "1c4ac748efb0a45936a2990f28e3b4a8a9dc298b242c097a60f3db024dfcc620",
+    "organization": "India Meteorological Department (IMD)"
+  },
+  "disaster.mgmt@jharkhand.gov.in": {
+    "id": "usr_dm_02",
+    "name": "S. K. Soren, IAS",
+    "email": "disaster.mgmt@jharkhand.gov.in",
+    "role": "District Disaster Authority",
+    "salt": "demo_salt_2",
+    "password_hash": "12885dba0e0978ded317f5f37b84521d6b57743053688ce726cabbe8e65c620d",
+    "organization": "Jharkhand State Disaster Management Authority"
+  },
+  "test.officer@imd.gov.in": {
+    "id": "usr_990a553e",
+    "name": "Amitabh Roy",
+    "email": "test.officer@imd.gov.in",
+    "role": "Agricultural Climate Officer",
+    "salt": "9604aa3c708c5fea",
+    "password_hash": "1d4fcd966dd8e01ae9ede53be685d1ab0cff0e6e271e14571eff2bcf4019ae4d",
+    "organization": "Operational Weather & Climate Center"
+  }
+}
