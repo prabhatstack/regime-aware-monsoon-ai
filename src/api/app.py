@@ -20,11 +20,23 @@ from src.models.model1_regime import RegimeClassifier
 from src.models.model2_error_regressor import RainfallErrorRegressor
 from src.models.model3_heavy_rain import HeavyRainClassifier
 from src.api.auth import auth_router
+from src.config import (
+    CORS_ORIGINS,
+    TEST_PREDICTIONS_FILE,
+    VERIFICATION_RESULTS_FILE,
+    MODEL1_PATH,
+    MODEL2_PATH,
+    MODEL3_PATH,
+    WEB_DIR,
+    DEBUG,
+    APP_ENV
+)
 
 app = FastAPI(
     title="Regime-Aware Monsoon Rainfall Post-Processing API & Dashboard",
     description="Backend API and visualization platform for 2-stage regime-conditioned post-processed rainfall forecasts.",
-    version="1.0.0"
+    version="1.0.0",
+    debug=DEBUG
 )
 
 # Register Authentication Router
@@ -33,7 +45,7 @@ app.include_router(auth_router)
 # Enable CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,9 +61,8 @@ cached_verification_report: Optional[Dict[str, Any]] = None
 def get_data() -> pd.DataFrame:
     global cached_test_data
     if cached_test_data is None:
-        test_path = "data/test_predictions_enriched.csv"
-        if os.path.exists(test_path):
-            cached_test_data = pd.read_csv(test_path)
+        if os.path.exists(TEST_PREDICTIONS_FILE):
+            cached_test_data = pd.read_csv(TEST_PREDICTIONS_FILE)
         else:
             raise HTTPException(status_code=503, detail="Forecast predictions data not generated yet.")
     return cached_test_data
@@ -60,22 +71,16 @@ def get_data() -> pd.DataFrame:
 def load_artifacts():
     global model1, model2, model3, cached_test_data, cached_verification_report
 
-    m1_path = "models/model1_regime.joblib"
-    m2_path = "models/model2_error.joblib"
-    m3_path = "models/model3_heavy_rain.joblib"
-    test_path = "data/test_predictions_enriched.csv"
-    verif_path = "data/verification_results.json"
-
-    if os.path.exists(m1_path):
-        model1 = RegimeClassifier.load(m1_path)
-    if os.path.exists(m2_path):
-        model2 = RainfallErrorRegressor.load(m2_path)
-    if os.path.exists(m3_path):
-        model3 = HeavyRainClassifier.load(m3_path)
-    if os.path.exists(test_path):
-        cached_test_data = pd.read_csv(test_path)
-    if os.path.exists(verif_path):
-        with open(verif_path, "r") as f:
+    if os.path.exists(MODEL1_PATH):
+        model1 = RegimeClassifier.load(MODEL1_PATH)
+    if os.path.exists(MODEL2_PATH):
+        model2 = RainfallErrorRegressor.load(MODEL2_PATH)
+    if os.path.exists(MODEL3_PATH):
+        model3 = HeavyRainClassifier.load(MODEL3_PATH)
+    if os.path.exists(TEST_PREDICTIONS_FILE):
+        cached_test_data = pd.read_csv(TEST_PREDICTIONS_FILE)
+    if os.path.exists(VERIFICATION_RESULTS_FILE):
+        with open(VERIFICATION_RESULTS_FILE, "r") as f:
             cached_verification_report = json.load(f)
 
 # API Endpoints
@@ -182,8 +187,8 @@ def get_district_timeseries(district_name: str, lead_time_hr: int = 24):
 def get_verification_report():
     global cached_verification_report
     if cached_verification_report is None:
-        if os.path.exists("data/verification_results.json"):
-            with open("data/verification_results.json", "r") as f:
+        if os.path.exists(VERIFICATION_RESULTS_FILE):
+            with open(VERIFICATION_RESULTS_FILE, "r") as f:
                 cached_verification_report = json.load(f)
         else:
             raise HTTPException(status_code=503, detail="Verification report not yet generated.")
@@ -191,6 +196,6 @@ def get_verification_report():
     return cached_verification_report
 
 # Mount Web Directory
-web_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
-os.makedirs(web_dir, exist_ok=True)
-app.mount("/", StaticFiles(directory=web_dir, html=True), name="web")
+os.makedirs(WEB_DIR, exist_ok=True)
+app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
+

@@ -88,10 +88,13 @@ Evaluated strictly on **3,660 out-of-sample records** across Jharkhand districts
 
 ### 1. Clone & Install Dependencies
 ```bash
-git clone https://github.com/prabhatstack/regime-aware-monsoon-postprocessing.git
-cd regime-aware-monsoon-postprocessing
+git clone https://github.com/prabhatstack/regime-aware-monsoon-ai.git
+cd regime-aware-monsoon-ai
 
 pip install -r requirements.txt
+
+# (Optional) Customize environment settings
+cp .env.example .env
 ```
 
 ### 2. Run the End-to-End Pipeline

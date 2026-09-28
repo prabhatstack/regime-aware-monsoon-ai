@@ -21,3 +21,9 @@ Thumbs.db
 *.log
 scratch/
 tools/
+
+# Environment configurations
+.env
+.env.local
+.env.*.local
+!.env.example

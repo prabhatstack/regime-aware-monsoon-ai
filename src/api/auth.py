@@ -10,10 +10,10 @@ import secrets
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, EmailStr
 from fastapi import APIRouter, HTTPException, Depends, Header
+from src.config import USERS_FILE
 
 auth_router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
-USERS_FILE = "data/users.json"
 SESSIONS: Dict[str, Dict[str, Any]] = {}
 
 class UserRegister(BaseModel):
