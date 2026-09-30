@@ -4,6 +4,7 @@
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com)
 [![XGBoost](https://img.shields.io/badge/ML-XGBoost-orange.svg)](https://xgboost.readthedocs.io/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/prabhatstack/regime-aware-monsoon-ai)
 
 > **One-Line Project Explanation**:  
 > *"Our system does not replace the weather model; it learns how NWP rainfall forecasts behave under different monsoon regimes and applies regime-aware machine-learning corrections to improve rainfall forecasts and heavy-rainfall decision support."*
