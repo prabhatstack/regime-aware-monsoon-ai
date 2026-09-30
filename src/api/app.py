@@ -71,17 +71,53 @@ def get_data() -> pd.DataFrame:
 def load_artifacts():
     global model1, model2, model3, cached_test_data, cached_verification_report
 
-    if os.path.exists(MODEL1_PATH):
-        model1 = RegimeClassifier.load(MODEL1_PATH)
-    if os.path.exists(MODEL2_PATH):
-        model2 = RainfallErrorRegressor.load(MODEL2_PATH)
-    if os.path.exists(MODEL3_PATH):
-        model3 = HeavyRainClassifier.load(MODEL3_PATH)
-    if os.path.exists(TEST_PREDICTIONS_FILE):
-        cached_test_data = pd.read_csv(TEST_PREDICTIONS_FILE)
-    if os.path.exists(VERIFICATION_RESULTS_FILE):
-        with open(VERIFICATION_RESULTS_FILE, "r") as f:
-            cached_verification_report = json.load(f)
+    artifacts_missing = (
+        not os.path.exists(MODEL1_PATH)
+        or not os.path.exists(MODEL2_PATH)
+        or not os.path.exists(MODEL3_PATH)
+        or not os.path.exists(TEST_PREDICTIONS_FILE)
+        or not os.path.exists(VERIFICATION_RESULTS_FILE)
+    )
+
+    if artifacts_missing:
+        print("[Startup] One or more model artifacts missing. Executing train_and_evaluate pipeline...")
+        try:
+            from scripts.train_and_evaluate import run_pipeline
+            run_pipeline()
+        except Exception as e:
+            print(f"[Startup Warning] Could not auto-generate pipeline artifacts: {e}")
+
+    try:
+        if os.path.exists(MODEL1_PATH):
+            model1 = RegimeClassifier.load(MODEL1_PATH)
+        if os.path.exists(MODEL2_PATH):
+            model2 = RainfallErrorRegressor.load(MODEL2_PATH)
+        if os.path.exists(MODEL3_PATH):
+            model3 = HeavyRainClassifier.load(MODEL3_PATH)
+        if os.path.exists(TEST_PREDICTIONS_FILE):
+            cached_test_data = pd.read_csv(TEST_PREDICTIONS_FILE)
+        if os.path.exists(VERIFICATION_RESULTS_FILE):
+            with open(VERIFICATION_RESULTS_FILE, "r") as f:
+                cached_verification_report = json.load(f)
+        print("[Startup] All artifacts and models successfully loaded into memory.")
+    except Exception as err:
+        print(f"[Startup Warning] Error loading saved model artifacts ({err}). Regenerating...")
+        try:
+            from scripts.train_and_evaluate import run_pipeline
+            run_pipeline()
+            if os.path.exists(MODEL1_PATH):
+                model1 = RegimeClassifier.load(MODEL1_PATH)
+            if os.path.exists(MODEL2_PATH):
+                model2 = RainfallErrorRegressor.load(MODEL2_PATH)
+            if os.path.exists(MODEL3_PATH):
+                model3 = HeavyRainClassifier.load(MODEL3_PATH)
+            if os.path.exists(TEST_PREDICTIONS_FILE):
+                cached_test_data = pd.read_csv(TEST_PREDICTIONS_FILE)
+            if os.path.exists(VERIFICATION_RESULTS_FILE):
+                with open(VERIFICATION_RESULTS_FILE, "r") as f:
+                    cached_verification_report = json.load(f)
+        except Exception as final_err:
+            print(f"[Startup Error] Fatal error initializing artifacts: {final_err}")
 
 # API Endpoints
 @app.get("/api/health")
